@@ -1,0 +1,133 @@
+; =========================================
+; GSENDER G91 STOCK PROBING MACRO
+; =========================================
+
+; Note, this macro assumes the probe is already set up and working, and that the machine is in a safe state to run the probing routine. It also assumes that the stock is roughly centered under the probe to start, since we are using fixed margins to find the edges. If the stock is significantly off-center, we may need to adjust the margins or add an initial rough probing step to find the general location of the stock before doing the more precise edge probing. Use a ruler to roughly center the stock under the probe before starting the macro, and make sure to clear any clamps or fixtures that could interfere with the probe's path.
+
+%wait
+
+; --------- STOCK VARIABLES ---------
+%STOCK_X = 100 ; we set these as variables to make it easy to change the stock size without changing the probing logic
+%STOCK_Y = 40 ; same as above 
+
+        ; the above variables define the stock size in the X and Y dimensions based on machine oríentation
+
+%PROBE_FEED_FAST = 150
+%PROBE_FEED_SLOW = 50
+%PROBE_RETRACT   = 2
+
+%Z_SAFE_LIFT     = 10
+%Z_UNDER_SURFACE = -4
+
+%EDGE_MARGIN_MAJOR     = 10 ; this is the distance from the edge of the stock to where we start the probe. We want this to be big enough to clear any clamps or fixtures, but not so big that we risk missing the stock entirely. The actual probe target is further out by EDGE_MARGIN, so this just needs to be a safe starting point for the probe.
+%EDGE_MARGIN     = 5 ; this is the additional distance we probe past the opposite edge
+
+%UNITS=modal.units ; we save the current units and distance mode to restore at the end of the macro
+%DISTANCE=modal.distance ; we save the current units and distance mode to restore at the end of the macro
+
+G91
+G21
+
+; =====================================================
+; STEP 1: PROBE Z (set surface as Z0)
+; =====================================================
+G38.2 Z-50 F[PROBE_FEED_FAST]
+G0 Z[PROBE_RETRACT]
+G38.2 Z-5 F[PROBE_FEED_SLOW]
+%Z_SURFACE = posz
+G0 Z[PROBE_RETRACT]
+
+; G38.2 Z probe completed, temporarily shift Z origin up by PROBE_RETRACT
+; This clears the probe contact. Z_LIFT_TOTAL later lifts relative to this origin.
+G4 P1
+G10 L20 P1 Z[PROBE_RETRACT]
+
+; deterministic safe lift above Z surface
+%Z_LIFT_TOTAL = Z_SAFE_LIFT - Z_UNDER_SURFACE
+G0 Z[Z_LIFT_TOTAL]
+
+
+; =====================================================
+; STEP 2: PROBE X EDGES
+; =====================================================
+
+; ---- RIGHT EDGE ----
+G0 X[ STOCK_X/2 + EDGE_MARGIN_MAJOR ]
+; Special descent: compensate for the extra retract applied after Z probe
+; This makes the first X edge start from the same effective surface reference.
+G0 Z-[Z_LIFT_TOTAL - Z_UNDER_SURFACE]
+
+G38.2 X-[ STOCK_X + 2*EDGE_MARGIN ] F[PROBE_FEED_FAST]
+G0 X[PROBE_RETRACT]
+G38.2 X-5 F[PROBE_FEED_SLOW]
+%X_RIGHT = posx
+G0 X[PROBE_RETRACT]
+G0 Z[Z_LIFT_TOTAL]
+
+; ---- LEFT EDGE ----
+G0 X-[ STOCK_X + 2*EDGE_MARGIN ]
+G0 Z-[Z_LIFT_TOTAL]
+
+G38.2 X[ STOCK_X + 2*EDGE_MARGIN ] F[PROBE_FEED_FAST]
+G0 X-[PROBE_RETRACT]
+G38.2 X5 F[PROBE_FEED_SLOW]
+%X_LEFT = posx
+G0 X-[PROBE_RETRACT]
+G0 Z[Z_LIFT_TOTAL]
+
+
+; ---- X CENTER ----
+%X_CHORD = X_RIGHT - X_LEFT
+; Center move includes PROBE_RETRACT to undo the clearing retract smoothly
+; Keeps G91 relative mode and produces a non-jerky centering move.
+G10 L20 P1 X[X_LEFT]
+G0 X[X_CHORD/2 + PROBE_RETRACT] ; the center move includes a retract to ensure the probe is clear of the stock at the end of the move. This makes it more likely that the final position will be exactly centered, since we won't have any dragging or rubbing of the probe against the stock as we approach center. It also keeps us in G91 relative mode, which makes for smoother moves without any sudden jumps or changes in direction.
+%X_CENTER = posx
+G4 P1           ; A dwell time of one second to make sure the planner queue is empty 
+G10 L20 P1 X0
+
+
+; =====================================================
+; STEP 3: PROBE Y EDGES
+; =====================================================
+
+; ---- TOP EDGE ----
+G0 Y[ STOCK_Y/2 + EDGE_MARGIN_MAJOR ]
+G0 Z-[Z_LIFT_TOTAL]
+
+G38.2 Y-[ STOCK_Y + 2*EDGE_MARGIN ] F[PROBE_FEED_FAST]
+G0 Y[PROBE_RETRACT]
+G38.2 Y-5 F[PROBE_FEED_SLOW]
+%Y_TOP = posy
+G0 Y[PROBE_RETRACT]
+G0 Z[Z_LIFT_TOTAL]
+
+; ---- BOTTOM EDGE ----
+G0 Y-[ STOCK_Y + 2*EDGE_MARGIN ]
+G0 Z-[Z_LIFT_TOTAL]
+G38.2 Y[ STOCK_Y + 2*EDGE_MARGIN ] F[PROBE_FEED_FAST]
+G0 Y-[PROBE_RETRACT]
+G38.2 Y5 F[PROBE_FEED_SLOW]
+%Y_BTM = posy
+G0 Y-[PROBE_RETRACT]
+G0 Z[Z_LIFT_TOTAL]
+
+
+; ---- Y CENTER ----
+%Y_CHORD = Y_TOP - Y_BTM
+; Center move includes PROBE_RETRACT to undo the clearing retract smoothly
+; Keeps G91 relative mode and produces a non-jerky centering move.
+G10 L20 P1 Y[Y_BTM]
+G0 Y[Y_CHORD/2 + PROBE_RETRACT] ; the center move includes a retract to ensure the probe is clear of the stock at the end of the move. This makes it more likely that the final position will be exactly centered, since we won't have any dragging or rubbing of the probe against the stock as we approach center. It also keeps us in G91 relative mode, which makes for smoother moves without any sudden jumps or changes in direction.
+%Y_CENTER = posy
+G4 P1           ; A dwell time of one second to make sure the planner queue is empty
+G10 L20 P1 Y0
+
+
+; =====================================================
+; STEP 4: FINAL POSITION
+; =====================================================
+G0 X0 Y0 ; we should now be centered on the stock, with Z lifted to a safe height above the surface. This is a good position to start any subsequent operations from, since we have a known reference point and are clear of the stock.
+
+; Probing complete
+[UNITS] [DISTANCE] ;restore unit and distance modal state
