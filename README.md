@@ -1,0 +1,1 @@
+This macro performs a complete probing routine for stock material, including probing Z, X, and Y edges, and centering the probe on the stock. It sets up various parameters for probing and ensures safe operation throughout the process.
