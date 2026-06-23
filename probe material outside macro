@@ -4,10 +4,6 @@
 
 %wait
 
-; Change WCS_P to switch Work Coordinate System:
-; 1 = G54, 2 = G55, 3 = G56, 4 = G57, 5 = G58, 6 = G59
-%WCS_P = 1
-
 ; --------- STOCK VARIABLES ---------
 %STOCK_X = 100 ;
 %STOCK_Y = 40  
@@ -40,7 +36,7 @@ G0 Z[PROBE_RETRACT]
 ; G38.2 Z probe completed, temporarily shift Z origin up by PROBE_RETRACT
 ; This clears the probe contact. Z_LIFT_TOTAL later lifts relative to this origin.
 G4 P1
-G10 L20 P[WCS_P] Z[PROBE_RETRACT]
+G10 L20 P0 Z[PROBE_RETRACT]
 
 ; deterministic safe lift above Z surface
 %Z_LIFT_TOTAL = Z_SAFE_LIFT - Z_UNDER_SURFACE
@@ -80,11 +76,11 @@ G0 Z[Z_LIFT_TOTAL]
 %X_CHORD = X_RIGHT - X_LEFT
 ; Center move includes PROBE_RETRACT to undo the clearing retract smoothly
 ; Keeps G91 relative mode and produces a non-jerky centering move.
-G10 L20 P[WCS_P] X[X_LEFT]
+G10 L20 P0 X[X_LEFT]
 G0 X[X_CHORD/2 + PROBE_RETRACT] ; the center move includes a retract to ensure the probe is clear of the stock at the end of the move. This makes it more likely that the final position will be exactly centered, since we won't have any dragging or rubbing of the probe against the stock as we approach center. It also keeps us in G91 relative mode, which makes for smoother moves without any sudden jumps or changes in direction.
 %X_CENTER = posx
 G4 P1           ; A dwell time of one second to make sure the planner queue is empty 
-G10 L20 P[WCS_P] X0
+G10 L20 P0 X0
 
 
 ; =====================================================
@@ -117,11 +113,11 @@ G0 Z[Z_LIFT_TOTAL]
 %Y_CHORD = Y_TOP - Y_BTM
 ; Center move includes PROBE_RETRACT to undo the clearing retract smoothly
 ; Keeps G91 relative mode and produces a non-jerky centering move.
-G10 L20 P[WCS_P] Y[Y_BTM]
+G10 L20 P0 Y[Y_BTM]
 G0 Y[Y_CHORD/2 + PROBE_RETRACT] ; the center move includes a retract to ensure the probe is clear of the stock at the end of the move. This makes it more likely that the final position will be exactly centered, since we won't have any dragging or rubbing of the probe against the stock as we approach center. It also keeps us in G91 relative mode, which makes for smoother moves without any sudden jumps or changes in direction.
 %Y_CENTER = posy
 G4 P1           ; A dwell time of one second to make sure the planner queue is empty
-G10 L20 P[WCS_P] Y0
+G10 L20 P0 Y0
 
 
 ; =====================================================
